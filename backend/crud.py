@@ -1,6 +1,6 @@
 # crud.py
 from typing import List, Dict, Set, Any
-from database import supabase
+from database import supabase_anon,supabase_admin
 
 
 def get_all_urls() -> Set[str]:
@@ -9,7 +9,7 @@ def get_all_urls() -> Set[str]:
     重複記事の判定用に使用。
     """
     try:
-        response = supabase.table("articles").select("url").execute()
+        response = supabase_anon.table("articles").select("url").execute()
         urls = {row["url"] for row in response.data}
         return urls
     except Exception as e:
@@ -27,7 +27,7 @@ def save_articles(articles: List[Dict[str, Any]]) -> None:
         return
 
     try:
-        supabase.table("articles").upsert(
+        supabase_admin.table("articles").upsert(
             articles,
             on_conflict="url",
             ignore_duplicates=True
@@ -39,7 +39,7 @@ def save_articles(articles: List[Dict[str, Any]]) -> None:
 
 def get_article_by_id(article_id: int) -> Dict[str, Any] | None:
     response = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .select("id, title, url, summary")
         .eq("id", article_id)
         .maybe_single()
@@ -52,7 +52,7 @@ def save_article_url_as_important(url: str, title: str) -> Dict[str, Any]:
     """Save a user-provided HTTPS URL to the important articles list."""
     article_fields = "id, title, url, summary, save_type, user_note, created_at"
     lookup = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .select(article_fields)
         .eq("url", url)
         .limit(1)
@@ -63,13 +63,13 @@ def save_article_url_as_important(url: str, title: str) -> Dict[str, Any]:
 
     if existing:
         (
-            supabase.table("articles")
+            supabase_anon.table("articles")
             .update({"save_type": "important"})
             .eq("id", existing["id"])
             .execute()
         )
         refreshed = (
-            supabase.table("articles")
+            supabase_anon.table("articles")
             .select(article_fields)
             .eq("id", existing["id"])
             .limit(1)
@@ -79,7 +79,7 @@ def save_article_url_as_important(url: str, title: str) -> Dict[str, Any]:
         return rows[0] if rows else {**existing, "save_type": "important"}
 
     (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .insert({
             "title": title,
             "url": url,
@@ -89,7 +89,7 @@ def save_article_url_as_important(url: str, title: str) -> Dict[str, Any]:
         .execute()
     )
     saved = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .select(article_fields)
         .eq("url", url)
         .limit(1)
@@ -104,13 +104,13 @@ def save_article_url_as_important(url: str, title: str) -> Dict[str, Any]:
 def update_article_title(article_id: int, title: str) -> Dict[str, Any] | None:
     """Update an article title and invalidate its embedding for later rebuilding."""
     (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .update({"title": title, "embedding": None})
         .eq("id", article_id)
         .execute()
     )
     response = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .select("id, title, url, summary, save_type, user_note, created_at")
         .eq("id", article_id)
         .limit(1)
@@ -129,7 +129,7 @@ def get_articles(limit: int = 100, unhandled_only: bool = True) -> List[Dict[str
     Supabaseの `articles` テーブルから、最新順（created_at desc）で最大100件取得する。
     """
     try:
-        query = supabase.table("articles").select("*")
+        query = supabase_anon.table("articles").select("*")
         if unhandled_only:
             query = query.is_("save_type", "null")
         response = (
@@ -152,7 +152,7 @@ def get_top_scored_articles(limit: int = 100, unhandled_only: bool = True) -> Li
 def get_important_articles() -> List[Dict[str, Any]]:
     try:
         response = (
-            supabase.table("articles")
+            supabase_anon.table("articles")
             .select("*")
             .eq("save_type", "important")
             .order("created_at", desc=True)
@@ -171,7 +171,7 @@ def update_article_user_state(
 ) -> Dict[str, Any] | None:
     """記事の保存タイプと自分用メモを更新する。"""
     response = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .update({"save_type": save_type, "user_note": user_note})
         .eq("id", article_id)
         .execute()
@@ -182,7 +182,7 @@ def update_article_user_state(
 def get_articles_for_embedding(rebuild: bool = False) -> List[Dict[str, Any]]:
     """Get articles needing embeddings, or all articles when rebuilding."""
     query = (
-        supabase.table("articles")
+        supabase_anon.table("articles")
         .select("id, title, summary, url, embedding")
         .order("id")
     )
@@ -193,13 +193,13 @@ def get_articles_for_embedding(rebuild: bool = False) -> List[Dict[str, Any]]:
 
 
 def save_article_embedding(article_id: int, embedding: List[float]) -> None:
-    supabase.table("articles").update({"embedding": embedding}).eq("id", article_id).execute()
+    supabase_anon.table("articles").update({"embedding": embedding}).eq("id", article_id).execute()
 
 
 def search_similar_articles(
     embedding: List[float], limit: int = 10, threshold: float = 0.0
 ) -> List[Dict[str, Any]]:
-    response = supabase.rpc(
+    response = supabase_anon.rpc(
         "match_articles",
         {
             "query_embedding": embedding,
@@ -246,7 +246,7 @@ def get_user_context() -> Dict[str, Any]:
     print("Fetching user context from Supabase...")
     
     response = (
-        supabase.table("user_context")
+        supabase_anon.table("user_context")
         .select("career_goal, current_focus, current_situation, interests, projects, subjects")
         .eq("id", 1)
         .maybe_single()
@@ -261,7 +261,7 @@ def save_user_context(context: Dict[str, Any]):
     print(f"Saving user context: {context}")
     payload = {**context, "id": 1}
     try:
-        supabase.table("user_context").upsert(payload, on_conflict="id").execute()
+        supabase_anon.table("user_context").upsert(payload, on_conflict="id").execute()
         return get_user_context()
     except Exception as e:
         print(f"Error saving user context: {e}")
