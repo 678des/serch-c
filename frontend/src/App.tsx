@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import SideBar from "./components/Sidebar";
 import { QiitaSearch } from "./components/QiitaSearch";
 import { VectorSearch } from "./components/VectorSearch";
-
+import { Header } from "./components/Header";
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:8000"
 ).replace(/\/+$/, "");
@@ -71,6 +71,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+      <Header />
       <div className="flex">
         <aside>
           <SideBar activeTab={activeTab} setActiveTab={setActiveTab}></SideBar>

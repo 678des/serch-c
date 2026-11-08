@@ -230,7 +230,7 @@ export function ArticleList({
   return (
     <main className="flex-1 p-4 bg-white">
       {/* デバッグ・プロトタイピング用 RSS取得コントロール */}
-      {showRssFetchControls && (
+      {/* {showRssFetchControls && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -294,7 +294,7 @@ export function ArticleList({
             </div>
           )}
         </section>
-      )}
+      )} */}
 
       {showSaveByUrl && (
         <section className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
