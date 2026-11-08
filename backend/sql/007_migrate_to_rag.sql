@@ -4,15 +4,13 @@
 -- 1. 旧スコアリング関連カラムの削除
 ALTER TABLE public.articles
   DROP COLUMN IF EXISTS ai_score,
-  DROP COLUMN IF EXISTS ai_comment;
+  DROP COLUMN IF EXISTS ai_comment,
+  DROP COLUMN IF EXISTS is_read;
 
--- 2. 旧ユーザー目標・ロードマップテーブルの削除
-DROP TABLE IF EXISTS public.user_context CASCADE;
-
--- 3. pgvector 拡張機能の有効化（未有効の場合）
+-- 2. pgvector 拡張機能の有効化（未有効の場合）
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- 4. RAGベクトル類似度検索関数の定義・更新
+-- 3. RAGベクトル類似度検索関数の定義・更新
 CREATE OR REPLACE FUNCTION public.match_articles(
   query_embedding vector(1536),
   match_threshold double precision DEFAULT 0.0,
