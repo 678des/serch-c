@@ -1,6 +1,7 @@
 # crud.py
 from typing import List, Dict, Set, Any
 from database import supabase_anon,supabase_admin
+from fastapi import Header, HTTPException
 
 
 def get_all_urls() -> Set[str]:
@@ -164,6 +165,8 @@ def get_important_articles() -> List[Dict[str, Any]]:
         return []
 
 
+
+
 def update_article_user_state(
     article_id: int,
     save_type: str | None,
@@ -241,28 +244,62 @@ def vectorize_unembedded_articles(batch_size: int = 50) -> Dict[str, Any]:
 
 
 
-def get_user_context() -> Dict[str, Any]:
+def get_user_context(authorization: str = Header(None)) -> Dict[str, Any]:
     """唯一のユーザーコンテクストを取得する。未作成なら空の初期値を返す。"""
     print("Fetching user context from Supabase...")
     
-    response = (
-        supabase_anon.table("user_context")
-        .select("career_goal, current_focus, current_situation, interests, projects, subjects")
-        .eq("id", 1)
-        .maybe_single()
-        .execute()
-    )
-    return response.data 
+    if not authorization:
+        raise HTTPException(status_code=401, detail="認証トークンがありません")
+
+    try:
+        token = authorization.replace("Bearer ", "")
+        user_response = supabase_admin.auth.get_user(token)
+        user_id = user_response.user.id
+        
+        response = (
+            supabase_admin.table("profile")
+            .select("career_goal, current_actions, interests, worries")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        
+        # データが存在しない場合は空の構造を返す
+        if not response.data:
+            return {
+                "career_goal": "",
+                "interests": "",
+                "current_actions": "",
+                "worries": ""
+            }
+            
+        return response.data
+
+    except Exception as e:
+        print(f"Error fetching user context: {e}")
+        raise HTTPException(status_code=500, detail=f"取得に失敗しました: {str(e)}")
 
 
-
-def save_user_context(context: Dict[str, Any]):
+def save_user_context(context,authorization: str = Header(None)):
     """唯一のユーザーコンテクストを作成または更新する。"""
     print(f"Saving user context: {context}")
-    payload = {**context, "id": 1}
+    if not authorization:
+        raise HTTPException(status_code=401, detail="認証トークンがありません")
+   
+    # "Bearer <token>" からトークン部分だけを抜き出す
+    token = authorization.replace("Bearer ", "")
     try:
-        supabase_anon.table("user_context").upsert(payload, on_conflict="id").execute()
-        return get_user_context()
+        # Supabase Authにトークンを投げて、ログイン中のユーザー情報を取得する
+        user_response = supabase_admin.auth.get_user(token)
+        user_id = user_response.user.id
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"認証に失敗しました: {e}")
+
+    
+    payload = {**context, "id": user_id}  # ユーザーIDを含めて保存
+    try:
+        supabase_admin.table("profile").upsert(payload, on_conflict="id").execute()
+        return get_user_context(token=token)
     except Exception as e:
         print(f"Error saving user context: {e}")
     

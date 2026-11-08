@@ -1,4 +1,4 @@
-import { SidebarGoals } from "./components/SidebarGoals";
+import { UserProfile } from "./components/UserProfile";
 import { ArticleList } from "./components/ArticleList";
 import { useEffect, useState } from "react";
 import SideBar from "./components/Sidebar";
@@ -99,7 +99,7 @@ function App() {
 
           // <SidebarGoals />
         }
-        {activeTab === "tab2" && <SidebarGoals />}
+        {activeTab === "tab2" && <UserProfile />}
         {activeTab === "tab3" && (
           <ArticleList
             articlesData={importantArticlesData ?? []}

@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv  
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI,Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -86,11 +86,9 @@ class RagQueryResponse(BaseModel):
 
 class UserContextResponse(BaseModel):
     career_goal:str
-    current_focus:str
-    subjects:List[str]
-    interests:List[str]
-    current_situation:str
-    projects:List[str]
+    interests:str
+    current_actions:str
+    worries:str
 # --- エンドポイント ---
 
 @app.get("/api/news")
@@ -307,16 +305,16 @@ def search_qiita_endpoint(
         raise HTTPException(status_code=500, detail=f"Qiita記事の検索に失敗しました: {e}")
 
 @app.put("/api/user-context")
-def save_user_context_endpoint(body: UserContextResponse):
+def save_user_context_endpoint(body: UserContextResponse, authorization: str = Header(None)):
     try:
-        print(f"Saving user context: {body.dict()}")
-        return save_user_context(body.dict())
+        return save_user_context(body.dict(), authorization)
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ユーザーコンテクストの保存に失敗しました: {e}")
     
 @app.get("/api/user-context")
-def get_user_context_endpoint():
+def get_user_context_endpoint(authorization: str = Header(None)):
     try:
-        return get_user_context()
+        return get_user_context(authorization=authorization)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ユーザーコンテクストの取得に失敗しました: {e}")

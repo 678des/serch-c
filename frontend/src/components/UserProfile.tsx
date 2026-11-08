@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { supabase } from "../lib/supabase";
 
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:8000"
@@ -6,54 +7,34 @@ const API_URL = (
 
 type UserContext = {
   career_goal: string;
-  current_focus: string;
-  subjects: string[];
-  interests: string[];
-  current_situation: string;
-  projects: string[];
+  interests: string;
+  current_actions: string;
+  worries: string;
 };
-
-// type ContextAdvice = {
-//   overview: string;
-//   themes: {
-//     theme: string;
-//     why: string;
-//     article_angles: string[];
-//     search_queries: string[];
-//   }[];
-//   after_reading_choices: string[];
-//   reminder: string;
-// };
 
 const emptyContext: UserContext = {
   career_goal: "",
-  current_focus: "",
-  subjects: [],
-  interests: [],
-  current_situation: "",
-  projects: [],
+  interests: "",
+  current_actions: "",
+  worries: "",
 };
 
-function linesToList(value: string): string[] {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-export function SidebarGoals() {
+export function UserProfile() {
   const [context, setContext] = useState<UserContext>(emptyContext);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  // const [generatingAdvice, setGeneratingAdvice] = useState(false);
-  // const [advice, setAdvice] = useState<ContextAdvice | null>(null);
-  // const [adviceError, setAdviceError] = useState("");
 
   useEffect(() => {
     const loadContext = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/user-context`);
+        const response = await fetch(`${API_URL}/api/user-context`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${await supabase.auth.getSession().then((session) => session.data.session?.access_token)}`,
+          },
+        });
         if (!response.ok)
           throw new Error("ユーザー情報を読み込めませんでした。");
         const data = await response.json();
@@ -70,9 +51,15 @@ export function SidebarGoals() {
   }, []);
 
   const persistContext = async (): Promise<UserContext> => {
+    const session = await supabase.auth.getSession();
+    console.log("Current session:", session);
+    const accessToken = session.data.session?.access_token;
     const response = await fetch(`${API_URL}/api/user-context`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify(context),
     });
     if (!response.ok)
@@ -83,6 +70,7 @@ export function SidebarGoals() {
   };
 
   const saveContext = async (event: FormEvent<HTMLFormElement>) => {
+    console.log("送信します", context);
     event.preventDefault();
     setSaving(true);
     setMessage("");
@@ -96,39 +84,6 @@ export function SidebarGoals() {
     } finally {
       setSaving(false);
     }
-  };
-
-  // const createAdvice = async () => {
-  //   setGeneratingAdvice(true);
-  //   setAdviceError("");
-  //   setMessage("");
-  //   try {
-  //     await persistContext();
-  //     const response = await fetch(`${API_URL}/api/user-context/advice`, {
-  //       method: "POST",
-  //     });
-  //     if (!response.ok)
-  //       throw new Error(
-  //         "提案を作れませんでした。少し待ってから再度お試しください。",
-  //       );
-  //     setAdvice(await response.json());
-  //   } catch (error) {
-  //     setAdviceError(
-  //       error instanceof Error ? error.message : "提案の作成に失敗しました。",
-  //     );
-  //   } finally {
-  //     setGeneratingAdvice(false);
-  //   }
-  // };
-
-  const updateText = (field: keyof UserContext, value: string) => {
-    setContext((current) => ({
-      ...current,
-      [field]:
-        field === "subjects" || field === "interests" || field === "projects"
-          ? linesToList(value)
-          : value,
-    }));
   };
 
   if (loading)
@@ -146,10 +101,12 @@ export function SidebarGoals() {
           <label className="block text-sm font-medium">
             長期的に目指したいこと
             <textarea
-              rows={2}
               value={context.career_goal}
               onChange={(event) =>
-                updateText("career_goal", event.target.value)
+                setContext((prev) => ({
+                  ...prev,
+                  career_goal: event.target.value,
+                }))
               }
               className="mt-1 w-full rounded border border-slate-300 p-3"
               placeholder="例：フルスタックWebエンジニアを目指す"
@@ -157,12 +114,14 @@ export function SidebarGoals() {
           </label>
 
           <label className="block text-sm font-medium">
-            今の重点・関心
+            今していること
             <textarea
-              rows={3}
-              value={context.current_focus}
+              value={context.current_actions}
               onChange={(event) =>
-                updateText("current_focus", event.target.value)
+                setContext((prev) => ({
+                  ...prev,
+                  current_actions: event.target.value,
+                }))
               }
               className="mt-1 w-full rounded border border-slate-300 p-3"
               placeholder="今気になっていること、学びたいこと"
@@ -172,9 +131,13 @@ export function SidebarGoals() {
           <label className="block text-sm font-medium">
             興味のあるテーマ（1行に1つ）
             <textarea
-              rows={4}
-              value={context.interests.join("\n")}
-              onChange={(event) => updateText("interests", event.target.value)}
+              value={context.interests}
+              onChange={(event) =>
+                setContext((prev) => ({
+                  ...prev,
+                  interests: event.target.value,
+                }))
+              }
               className="mt-1 w-full rounded border border-slate-300 p-3"
               placeholder={
                 "TypeScript\nAIとエンジニアのキャリア\nクラウドインフラ"
@@ -183,37 +146,14 @@ export function SidebarGoals() {
           </label>
 
           <label className="block text-sm font-medium">
-            学んでいる科目・技術（1行に1つ）
+            不安や悩み
             <textarea
-              rows={4}
-              value={context.subjects.join("\n")}
-              onChange={(event) => updateText("subjects", event.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 p-3"
-              placeholder={"データ構造とアルゴリズム\nPython\nLinux"}
-            />
-          </label>
-
-          <label className="block text-sm font-medium">
-            進行中のプロジェクト（1行に1つ）
-            <textarea
-              rows={3}
-              value={context.projects.join("\n")}
-              onChange={(event) => updateText("projects", event.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 p-3"
-              placeholder="今取り組んでいる開発や学習"
-            />
-          </label>
-
-          <label className="block text-sm font-medium">
-            情報を読むときの状況や希望（任意）
-            <textarea
-              rows={3}
-              value={context.current_situation}
+              value={context.worries}
               onChange={(event) =>
-                updateText("current_situation", event.target.value)
+                setContext((prev) => ({ ...prev, worries: event.target.value }))
               }
               className="mt-1 w-full rounded border border-slate-300 p-3"
-              placeholder="例：不安をあおらず、事実と推測を分けて整理したい"
+              placeholder=""
             />
           </label>
 
@@ -235,12 +175,6 @@ export function SidebarGoals() {
 
         <section className="mt-10 border-t border-slate-200 pt-6">
           <div className="flex flex-wrap items-start justify-between gap-4"></div>
-
-          {/* {adviceError && (
-            <p role="alert" className="mt-4 text-sm text-red-600">
-              {adviceError}
-            </p>
-          )} */}
         </section>
       </div>
     </main>
